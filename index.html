@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Sentence Trainer</title>
+
+
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-512.png">
+
+<meta name="theme-color" content="#ffffff">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="PTE Sentences">
+
+
+<style>
+
+body {
+    font-family: Arial, sans-serif;
+    background: #f5f5f5;
+    margin: 0;
+    padding: 20px;
+}
+
+.app {
+    max-width: 650px;
+    margin: 50px auto;
+    background: white;
+    padding: 35px;
+    border-radius: 15px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+
+h1 {
+    text-align: center;
+}
+
+.subtitle {
+    text-align: center;
+    color: #888;
+    margin-bottom: 25px;
+}
+
+.controls {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+select, button {
+    flex: 1;
+    padding: 11px;
+    font-size: 15px;
+    border-radius: 8px;
+}
+
+select {
+    border: 1px solid #ccc;
+    background: white;
+}
+
+button {
+    cursor: pointer;
+    border: none;
+}
+
+#importButton {
+    background: #e8f0fe;
+}
+
+#wrongButton {
+    background: #fff3e0;
+}
+
+#resetButton {
+    background: #fbe9e7;
+}
+
+#progress {
+    color: #777;
+    text-align: center;
+    margin-top: 25px;
+}
+
+#question {
+    text-align: center;
+    margin: 30px 0;
+    min-height: 60px;
+}
+
+#answer {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 14px;
+    font-size: 17px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+}
+
+.buttons {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+#submitButton {
+    background: #222;
+    color: white;
+}
+
+#nextButton {
+    background: #e5e5e5;
+}
+
+#result {
+    margin-top: 25px;
+    line-height: 1.7;
+    min-height: 65px;
+}
+
+.stats {
+    display: flex;
+    justify-content: center;
+    gap: 22px;
+    margin-top: 25px;
+    padding-top: 20px;
+    border-top: 1px solid #eee;
+    flex-wrap: wrap;
+    font-size: 15px;
+}
+
+.correct {
+    color: #16803c;
+}
+
+.wrong {
+    color: #c62828;
+}
+
+.library {
+    text-align: center;
+    color: #777;
+    font-size: 14px;
+    margin: 15px 0;
+}
+
+.hint {
+    text-align: center;
+    color: #999;
+    font-size: 13px;
+    margin-top: 20px;
+}
+
+</style>
+</head>
+
+
+<body>
+
+<div class="app">
+
+<h1>Sentence Trainer</h1>
+
+<div class="subtitle">
+    我的英语句子学习工具
+</div>
+
+
+<div class="controls">
+
+    <select id="direction" onchange="resetSession()">
+        <option value="cn-en">中 → 英</option>
+        <option value="en-cn">英 → 中</option>
+    </select>
+
+    <select id="mode" onchange="resetSession()">
+        <option value="sequence">顺序</option>
+        <option value="random">随机</option>
+    </select>
+
+</div>
+
+
+<div class="controls">
+
+    <button id="importButton"
+            onclick="document.getElementById('csvFile').click()">
+        📂 导入句库
+    </button>
+
+    <button id="wrongButton"
+            onclick="toggleWrongMode()">
+        错题练习
+    </button>
+
+    <button id="resetButton"
+            onclick="clearAllProgress()">
+        清除记录
+    </button>
+
+</div>
+
+
+<input
+    type="file"
+    id="csvFile"
+    accept=".csv"
+    style="display:none"
+>
+
+
+<div class="library">
+    当前句库：
+    <strong id="libraryCount">0</strong>
+    句
+</div>
+
+
+<p id="progress"></p>
+
+<h2 id="question"></h2>
+
+
+<input
+    id="answer"
+    type="text"
+    placeholder="请输入答案"
+    autocomplete="off"
+>
+
+
+<div class="buttons">
+
+    <button id="submitButton"
+            onclick="checkAnswer()">
+        提交答案
+    </button>
+
+    <button id="nextButton"
+            onclick="nextSentence()">
+        下一句
+    </button>
+
+</div>
+
+
+<div id="result"></div>
+
+
+<div class="stats">
+
+    <span class="correct">
+        ✓ 本次正确：
+        <strong id="correctCount">0</strong>
+    </span>
+
+    <span class="wrong">
+        ✗ 本次错误：
+        <strong id="wrongCount">0</strong>
+    </span>
+
+    <span>
+        📚 错题库：
+        <strong id="wrongSentenceCount">0</strong>
+    </span>
+
+</div>
+
+
+<div class="hint">
+    Enter：提交答案　|　再次 Enter：下一句
+</div>
+
+</div>
+
+
+<script src="sentences.js"></script>
+
+
+<script>
+
+/* =========================
+   读取句库
+========================= */
+
+const savedLibrary =
+    JSON.parse(
+        localStorage.getItem("sentenceLibrary")
+    );
+
+
+if (savedLibrary && savedLibrary.length > 0) {
+
+    sentences.length = 0;
+
+    savedLibrary.forEach(sentence => {
+        sentences.push(sentence);
+    });
+}
+
+
+
+/* =========================
+   基础变量
+========================= */
+
+let currentIndex = 0;
+
+let correctCount = 0;
+
+let wrongCount = 0;
+
+let answerSubmitted = false;
+
+let wrongMode = false;
+
+let wrongSentences =
+    JSON.parse(
+        localStorage.getItem("wrongSentences")
+    ) || [];
+
+
+
+/* =========================
+   CSV 导入
+========================= */
+
+document
+.getElementById("csvFile")
+.addEventListener("change", function(event) {
+
+    const file =
+        event.target.files[0];
+
+    if (!file) {
+        return;
+    }
+
+
+    const reader =
+        new FileReader();
+
+
+    reader.onload = function(e) {
+
+        const text =
+            e.target.result;
+
+
+        const rows =
+            parseCSV(text);
+
+
+        if (rows.length < 2) {
+
+            alert("CSV 文件中没有找到句子。");
+
+            return;
+        }
+
+
+        const newSentences = [];
+
+
+        for (let i = 1; i < rows.length; i++) {
+
+            const row =
+                rows[i];
+
+
+            if (row.length < 3) {
+                continue;
+            }
+
+
+            const chinese =
+                row[1].trim();
+
+            const english =
+                row[2].trim();
+
+
+            if (chinese && english) {
+
+                newSentences.push({
+
+                    chinese: chinese,
+
+                    english: english
+
+                });
+            }
+        }
+
+
+        if (newSentences.length === 0) {
+
+            alert(
+                "没有成功读取句子。\n\n请确认 CSV 格式为：\nID,Chinese,English"
+            );
+
+            return;
+        }
+
+
+        sentences.length = 0;
+
+
+        newSentences.forEach(sentence => {
+
+            sentences.push(sentence);
+
+        });
+
+
+        localStorage.setItem(
+            "sentenceLibrary",
+            JSON.stringify(sentences)
+        );
+
+
+        /*
+        导入新句库后清除旧错题，
+        防止句子编号发生变化
+        */
+
+        wrongSentences = [];
+
+        localStorage.removeItem(
+            "wrongSentences"
+        );
+
+
+        currentIndex = 0;
+
+        correctCount = 0;
+
+        wrongCount = 0;
+
+        wrongMode = false;
+
+
+        updateStats();
+
+        updateLibraryCount();
+
+        displaySentence();
+
+
+        alert(
+            "导入成功！\n\n共导入 "
+            + sentences.length
+            + " 个句子。"
+        );
+
+
+        event.target.value = "";
+    };
+
+
+    reader.readAsText(
+        file,
+        "UTF-8"
+    );
+
+});
+
+
+
+/* =========================
+   CSV 解析
+========================= */
+
+function parseCSV(text) {
+
+    const rows = [];
+
+    let row = [];
+
+    let field = "";
+
+    let insideQuotes = false;
+
+
+    for (let i = 0; i < text.length; i++) {
+
+        const char =
+            text[i];
+
+
+        if (char === '"') {
+
+            if (
+                insideQuotes
+                &&
+                text[i + 1] === '"'
+            ) {
+
+                field += '"';
+
+                i++;
+
+            } else {
+
+                insideQuotes =
+                    !insideQuotes;
+            }
+
+        }
+
+        else if (
+            char === ","
+            &&
+            !insideQuotes
+        ) {
+
+            row.push(field);
+
+            field = "";
+
+        }
+
+        else if (
+            (char === "\n"
+            || char === "\r")
+            &&
+            !insideQuotes
+        ) {
+
+            if (
+                char === "\r"
+                &&
+                text[i + 1] === "\n"
+            ) {
+
+                i++;
+            }
+
+
+            row.push(field);
+
+            field = "";
+
+
+            if (
+                row.some(
+                    item =>
+                    item.trim() !== ""
+                )
+            ) {
+
+                rows.push(row);
+            }
+
+
+            row = [];
+
+        }
+
+        else {
+
+            field += char;
+        }
+    }
+
+
+    row.push(field);
+
+
+    if (
+        row.some(
+            item =>
+            item.trim() !== ""
+        )
+    ) {
+
+        rows.push(row);
+    }
+
+
+    return rows;
+}
+
+
+
+/* =========================
+   保存错题
+========================= */
+
+function saveProgress() {
+
+    localStorage.setItem(
+        "wrongSentences",
+        JSON.stringify(wrongSentences)
+    );
+}
+
+
+
+/* =========================
+   显示句子
+========================= */
+
+function displaySentence() {
+
+    if (sentences.length === 0) {
+
+        document.getElementById("question").innerText =
+            "请先导入句库";
+
+        return;
+    }
+
+
+    if (
+        wrongMode
+        &&
+        wrongSentences.length === 0
+    ) {
+
+        document.getElementById("question").innerText =
+            "🎉 错题库已经清空！";
+
+        document.getElementById("progress").innerText =
+            "没有需要复习的错题";
+
+        document.getElementById("answer").disabled =
+            true;
+
+        return;
+    }
+
+
+    document.getElementById("answer").disabled =
+        false;
+
+
+    const direction =
+        document.getElementById("direction").value;
+
+
+    const sentence =
+        sentences[currentIndex];
+
+
+    if (direction === "cn-en") {
+
+        document.getElementById("question").innerText =
+            sentence.chinese;
+
+        document.getElementById("answer").placeholder =
+            "请输入英文答案";
+
+    } else {
+
+        document.getElementById("question").innerText =
+            sentence.english;
+
+        document.getElementById("answer").placeholder =
+            "请输入中文答案";
+    }
+
+
+    if (wrongMode) {
+
+        document.getElementById("progress").innerText =
+            "错题练习 · "
+            + wrongSentences.length
+            + " 题";
+
+    } else {
+
+        document.getElementById("progress").innerText =
+            "第 "
+            + (currentIndex + 1)
+            + " / "
+            + sentences.length
+            + " 句";
+    }
+
+
+    document.getElementById("answer").value =
+        "";
+
+    document.getElementById("result").innerHTML =
+        "";
+
+    answerSubmitted = false;
+
+    document.getElementById("answer").focus();
+}
+
+
+
+/* =========================
+   答案标准化
+========================= */
+
+function normalizeAnswer(text) {
+
+    return text
+        .toLowerCase()
+        .trim()
+        .replace(/[.,!?，。！？]/g, "")
+        .replace(/\s+/g, " ");
+}
+
+
+
+/* =========================
+   检查答案
+========================= */
+
+function checkAnswer() {
+
+    if (answerSubmitted) {
+        return;
+    }
+
+
+    const userAnswer =
+        document.getElementById("answer")
+        .value
+        .trim();
+
+
+    if (userAnswer === "") {
+
+        document.getElementById("result").innerHTML =
+            "请输入答案。";
+
+        return;
+    }
+
+
+    const direction =
+        document.getElementById("direction").value;
+
+
+    const sentence =
+        sentences[currentIndex];
+
+
+    const correctAnswer =
+        direction === "cn-en"
+        ? sentence.english
+        : sentence.chinese;
+
+
+    if (
+        normalizeAnswer(userAnswer)
+        ===
+        normalizeAnswer(correctAnswer)
+    ) {
+
+        document.getElementById("result").innerHTML =
+            "✅ <strong>正确！</strong>";
+
+        correctCount++;
+
+
+        if (wrongMode) {
+
+            wrongSentences =
+                wrongSentences.filter(
+                    index =>
+                    index !== currentIndex
+                );
+
+            saveProgress();
+        }
+
+    } else {
+
+        document.getElementById("result").innerHTML =
+            "❌ <strong>不正确</strong>"
+            + "<br><br>正确答案：<br>"
+            + "<strong>"
+            + correctAnswer
+            + "</strong>";
+
+
+        wrongCount++;
+
+
+        if (
+            !wrongSentences.includes(
+                currentIndex
+            )
+        ) {
+
+            wrongSentences.push(
+                currentIndex
+            );
+
+            saveProgress();
+        }
+    }
+
+
+    answerSubmitted = true;
+
+    updateStats();
+}
+
+
+
+/* =========================
+   下一句
+========================= */
+
+function nextSentence() {
+
+    if (wrongMode) {
+
+        if (
+            wrongSentences.length === 0
+        ) {
+
+            displaySentence();
+
+            updateStats();
+
+            return;
+        }
+
+
+        const mode =
+            document.getElementById("mode").value;
+
+
+        if (mode === "random") {
+
+            currentIndex =
+                wrongSentences[
+                    Math.floor(
+                        Math.random()
+                        *
+                        wrongSentences.length
+                    )
+                ];
+
+        } else {
+
+            let position =
+                wrongSentences.indexOf(
+                    currentIndex
+                );
+
+
+            if (position === -1) {
+
+                currentIndex =
+                    wrongSentences[0];
+
+            } else {
+
+                position++;
+
+
+                if (
+                    position
+                    >=
+                    wrongSentences.length
+                ) {
+
+                    position = 0;
+                }
+
+
+                currentIndex =
+                    wrongSentences[
+                        position
+                    ];
+            }
+        }
+
+    } else {
+
+        const mode =
+            document.getElementById("mode").value;
+
+
+        if (mode === "sequence") {
+
+            currentIndex++;
+
+
+            if (
+                currentIndex
+                >=
+                sentences.length
+            ) {
+
+                currentIndex = 0;
+            }
+
+        } else {
+
+            let newIndex;
+
+
+            do {
+
+                newIndex =
+                    Math.floor(
+                        Math.random()
+                        *
+                        sentences.length
+                    );
+
+            } while (
+                newIndex === currentIndex
+                &&
+                sentences.length > 1
+            );
+
+
+            currentIndex =
+                newIndex;
+        }
+    }
+
+
+    displaySentence();
+}
+
+
+
+/* =========================
+   错题模式
+========================= */
+
+function toggleWrongMode() {
+
+    wrongMode =
+        !wrongMode;
+
+
+    if (wrongMode) {
+
+        document.getElementById(
+            "wrongButton"
+        ).innerText =
+            "退出错题练习";
+
+
+        if (
+            wrongSentences.length > 0
+        ) {
+
+            currentIndex =
+                wrongSentences[0];
+        }
+
+    } else {
+
+        document.getElementById(
+            "wrongButton"
+        ).innerText =
+            "错题练习";
+
+        currentIndex = 0;
+    }
+
+
+    correctCount = 0;
+
+    wrongCount = 0;
+
+    updateStats();
+
+    displaySentence();
+}
+
+
+
+/* =========================
+   切换模式
+========================= */
+
+function resetSession() {
+
+    correctCount = 0;
+
+    wrongCount = 0;
+
+
+    if (
+        wrongMode
+        &&
+        wrongSentences.length > 0
+    ) {
+
+        currentIndex =
+            wrongSentences[0];
+
+    } else {
+
+        currentIndex = 0;
+    }
+
+
+    updateStats();
+
+    displaySentence();
+}
+
+
+
+/* =========================
+   清除学习记录
+========================= */
+
+function clearAllProgress() {
+
+    const confirmed =
+        confirm(
+            "确定要清除所有错题记录吗？\n\n句库不会被删除。"
+        );
+
+
+    if (!confirmed) {
+        return;
+    }
+
+
+    wrongSentences = [];
+
+    localStorage.removeItem(
+        "wrongSentences"
+    );
+
+
+    correctCount = 0;
+
+    wrongCount = 0;
+
+    currentIndex = 0;
+
+    wrongMode = false;
+
+
+    document.getElementById(
+        "wrongButton"
+    ).innerText =
+        "错题练习";
+
+
+    updateStats();
+
+    displaySentence();
+}
+
+
+
+/* =========================
+   更新统计
+========================= */
+
+function updateStats() {
+
+    document.getElementById(
+        "correctCount"
+    ).innerText =
+        correctCount;
+
+
+    document.getElementById(
+        "wrongCount"
+    ).innerText =
+        wrongCount;
+
+
+    document.getElementById(
+        "wrongSentenceCount"
+    ).innerText =
+        wrongSentences.length;
+}
+
+
+
+function updateLibraryCount() {
+
+    document.getElementById(
+        "libraryCount"
+    ).innerText =
+        sentences.length;
+}
+
+
+
+/* =========================
+   Enter 操作
+========================= */
+
+document
+.getElementById("answer")
+.addEventListener(
+    "keydown",
+    function(event) {
+
+        if (event.key === "Enter") {
+
+            if (!answerSubmitted) {
+
+                checkAnswer();
+
+            } else {
+
+                nextSentence();
+            }
+        }
+    }
+);
+
+
+
+updateStats();
+
+updateLibraryCount();
+
+displaySentence();
+
+if ("serviceWorker" in navigator) {
+
+    window.addEventListener("load", function() {
+
+        navigator.serviceWorker.register("./service-worker.js")
+            .then(function() {
+
+                console.log("Service Worker registered.");
+
+            })
+            .catch(function(error) {
+
+                console.log("Service Worker registration failed:", error);
+
+            });
+
+    });
+
+}
+
+
+</script>
+
+</body>
+</html>
