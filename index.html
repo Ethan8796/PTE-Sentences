@@ -155,6 +155,20 @@ button {
     margin-top: 20px;
 }
 
+#question {
+    margin-bottom: 8px;
+}
+
+.ipa-hint {
+    font-size: 18px;
+    color: #666;
+    margin: 0 0 10px 0;
+    line-height: 1.4;
+    min-height: 25px;
+    font-family: Arial, "Segoe UI", sans-serif;
+}
+
+
 </style>
 </head>
 
@@ -202,6 +216,11 @@ button {
         清除记录
     </button>
 
+    <button id="ipaToggle" type="button" onclick="toggleIPA()">
+    隐藏音标
+</button>
+
+    
 </div>
 
 
@@ -224,12 +243,14 @@ button {
 
 <h2 id="question"></h2>
 
+<div id="ipaHint" class="ipa-hint"></div>
 
-<input
-    id="answer"
-    type="text"
-    placeholder="请输入答案"
-    autocomplete="off"
+
+<input 
+    id="answer" 
+    type="text" 
+    placeholder="请输入答案" 
+    autocomplete="off" 
 >
 
 
@@ -310,6 +331,8 @@ if (savedLibrary && savedLibrary.length > 0) {
 
 let currentIndex = 0;
 
+let ipaVisible = true;
+
 let correctCount = 0;
 
 let wrongCount = 0;
@@ -323,6 +346,42 @@ let wrongSentences =
         localStorage.getItem("wrongSentences")
     ) || [];
 
+
+function toggleIPA() {
+
+    ipaVisible = !ipaVisible;
+
+    const ipaHint =
+        document.getElementById("ipaHint");
+
+    const ipaToggle =
+        document.getElementById("ipaToggle");
+
+    if (ipaVisible) {
+
+        const direction =
+            document.getElementById("direction").value;
+
+        const sentence =
+            sentences[currentIndex];
+
+        if (direction === "cn-en" && sentence) {
+            ipaHint.innerText =
+                sentence.ipa || "";
+        }
+
+        ipaToggle.innerText =
+            "隐藏音标";
+
+    } else {
+
+        ipaHint.innerText =
+            "";
+
+        ipaToggle.innerText =
+            "显示音标";
+    }
+}
 
 
 /* =========================
@@ -366,35 +425,37 @@ document
         const newSentences = [];
 
 
-        for (let i = 1; i < rows.length; i++) {
+       for (let i = 1; i < rows.length; i++) {
 
-            const row =
-                rows[i];
+    const row =
+        rows[i];
 
+    if (row.length < 3) {
+        continue;
+    }
 
-            if (row.length < 3) {
-                continue;
-            }
+    const chinese =
+        row[1].trim();
 
+    const english =
+        row[2].trim();
 
-            const chinese =
-                row[1].trim();
+    const ipa =
+        row[3] ? row[3].trim() : "";
 
-            const english =
-                row[2].trim();
+    if (chinese && english) {
 
+        newSentences.push({
 
-            if (chinese && english) {
+            chinese: chinese,
 
-                newSentences.push({
+            english: english,
 
-                    chinese: chinese,
+            ipa: ipa
 
-                    english: english
-
-                });
-            }
-        }
+        });
+    }
+}
 
 
         if (newSentences.length === 0) {
@@ -649,20 +710,35 @@ function displaySentence() {
 
     if (direction === "cn-en") {
 
-        document.getElementById("question").innerText =
-            sentence.chinese;
+    document.getElementById("question").innerText =
+        sentence.chinese;
 
-        document.getElementById("answer").placeholder =
-            "请输入英文答案";
+    document.getElementById("ipaHint").innerText =
+        ipaVisible ? (sentence.ipa || "") : "";
 
-    } else {
+    document.getElementById("ipaToggle").style.display =
+        "";
 
-        document.getElementById("question").innerText =
-            sentence.english;
+    document.getElementById("ipaToggle").innerText =
+        ipaVisible ? "隐藏音标" : "显示音标";
 
-        document.getElementById("answer").placeholder =
-            "请输入中文答案";
-    }
+    document.getElementById("answer").placeholder =
+        "请输入英文答案";
+
+} else {
+
+    document.getElementById("question").innerText =
+        sentence.english;
+
+    document.getElementById("ipaHint").innerText =
+        "";
+
+    document.getElementById("ipaToggle").style.display =
+        "none";
+
+    document.getElementById("answer").placeholder =
+        "请输入中文答案";
+}
 
 
     if (wrongMode) {

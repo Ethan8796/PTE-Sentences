@@ -1,4 +1,4 @@
-const CACHE_NAME = "sentence-trainer-v2";
+const CACHE_NAME = "sentence-trainer-v3";
 
 const FILES_TO_CACHE = [
     "./",
